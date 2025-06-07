@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rotating Rose Field</title>
+  <style>
+    html, body {
+      margin: 0;
+      background: black;
+      overflow: hidden;
+      height: 100%;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+// Particle setup
+const particles = Array.from({ length: 150 }, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * canvas.height,
+  size: Math.random() * 2 + 1,
+  speed: Math.random() * 0.2 + 0.1,
+  alpha: Math.random() * 0.4 + 0.3
+}));
+
+function drawParticles() {
+  for (let p of particles) {
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255, 220, 180, ${p.alpha})`;
+    ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
+    ctx.fill();
+    p.y -= p.speed;
+    if (p.y < 0) p.y = canvas.height;
+  }
+}
+
+// Draw one petal
+function drawPetal(cx, cy, radius, angle, alpha, hue) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.bezierCurveTo(radius * 0.2, -radius * 0.5, radius * 0.8, -radius * 0.5, radius, 0);
+  ctx.bezierCurveTo(radius * 0.8, radius * 0.5, radius * 0.2, radius * 0.5, 0, 0);
+
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
+  grad.addColorStop(0, `hsla(${hue}, 90%, 70%, ${alpha})`);
+  grad.addColorStop(0.5, `hsla(${hue}, 80%, 50%, ${alpha * 0.8})`);
+  grad.addColorStop(1, `hsla(${hue}, 70%, 30%, ${alpha * 0.5})`);
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.strokeStyle = `hsla(${hue}, 50%, 20%, ${alpha * 0.9})`;
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Draw full rose
+function drawRose(cx, cy, scale, progress, hue, rotation, opacity = 1) {
+  const layers = 10;
+  const petalsPerLayer = 8;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.translate(-cx, -cy);
+
+  for (let j = 0; j < layers; j++) {
+    const r = scale * (10 + j * 6);
+    const alpha = Math.min(progress * 2, 1) * (1 - j / layers) * opacity;
+    for (let i = 0; i < petalsPerLayer; i++) {
+      const angle = (i / petalsPerLayer) * Math.PI * 2 + (j % 2) * (Math.PI / petalsPerLayer);
+      drawPetal(cx, cy, r, angle, alpha, hue);
+    }
+  }
+
+  ctx.restore();
+}
+
+// Create a new rose object
+function createRose(x = Math.random() * canvas.width, y = Math.random() * canvas.height) {
+  return {
+    x,
+    y,
+    scale: 1.2 + Math.random() * 1,
+    hue: Math.floor(Math.random() * 360),
+    timeOffset: 0,
+    progress: 0,
+    rotation: Math.random() * Math.PI * 2,
+    rotationSpeed: (Math.random() - 0.5) * 0.01,
+    status: "growing",
+    opacity: 1
+  };
+}
+
+const MAX_ROSES = 12;
+const initialCount = 7;
+const roses = Array.from({ length: initialCount }, () => createRose());
+
+let time = 0;
+function animate() {
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawParticles();
+
+  for (let i = roses.length - 1; i >= 0; i--) {
+    let r = roses[i];
+
+    if (time > r.timeOffset) {
+      if (r.status === "growing") {
+        r.progress += 0.01;
+        r.opacity = Math.min(1, r.progress);
+      } else if (r.status === "fading") {
+        r.opacity -= 0.01;
+        if (r.opacity <= 0) {
+          roses.splice(i, 1); // Remove fully faded rose
+          continue;
+        }
+      }
+
+      r.rotation += r.rotationSpeed;
+
+      drawRose(
+        r.x,
+        r.y,
+        r.scale,
+        Math.min(r.progress, 1),
+        r.hue,
+        r.rotation,
+        r.opacity
+      );
+    }
+  }
+
+  time++;
+  requestAnimationFrame(animate);
+}
+animate();
+
+// Click to add rose
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  roses.push(createRose(x, y));
+
+  // If too many, mark oldest growing rose to fade
+  const growing = roses.find(r => r.status === "growing");
+  if (roses.length > MAX_ROSES && growing) {
+    growing.status = "fading";
+  }
+});
+
+// Resize support
+window.addEventListener('resize', () => {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+});
+</script>
+</body>
+</html>
