@@ -1,175 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rotating Rose Field</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Heart Reveal</title>
   <style>
     html, body {
       margin: 0;
+      height: 100%;
       background: black;
       overflow: hidden;
-      height: 100%;
+      font-family: sans-serif;
     }
-    canvas {
+
+    #canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    #overlay {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1;
+    }
+
+    #clickMe, #noteBox {
+      position: absolute;
+      z-index: 2;
+      padding: 1em 2em;
+      font-size: 1.5em;
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      background: #ff4081;
+      color: white;
+      transition: all 0.6s ease;
+      opacity: 0.9;
+    }
+
+    #noteBox {
+      display: none;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+      opacity: 0;
+      text-align: center;
+    }
+
+    #noteBox.active {
       display: block;
+      width: 300px;
+      height: 200px;
+      opacity: 1;
+      padding: 1.5em;
+    }
+
+    #clickMe.fade {
+      opacity: 0;
+      transform: scale(0.5);
     }
   </style>
 </head>
 <body>
 <canvas id="canvas"></canvas>
+<div id="overlay">
+  <button id="clickMe">CLICK ME</button>
+  <div id="noteBox">Here is your message in the note box!</div>
+</div>
+
 <script>
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  let width = canvas.width = window.innerWidth;
+  let height = canvas.height = window.innerHeight;
 
-// Particle setup
-const particles = Array.from({ length: 150 }, () => ({
-  x: Math.random() * canvas.width,
-  y: Math.random() * canvas.height,
-  size: Math.random() * 2 + 1,
-  speed: Math.random() * 0.2 + 0.1,
-  alpha: Math.random() * 0.4 + 0.3
-}));
+  window.addEventListener('resize', () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+  });
 
-function drawParticles() {
-  for (let p of particles) {
+  // Particle background
+  const particles = Array.from({ length: 100 }, () => ({
+    x: Math.random() * width,
+    y: Math.random() * height,
+    radius: Math.random() * 2 + 1,
+    alpha: Math.random() * 0.5 + 0.5,
+    pulse: Math.random() * 0.05 + 0.01
+  }));
+
+  function drawParticles() {
+    ctx.clearRect(0, 0, width, height);
+    for (let p of particles) {
+      p.alpha += p.pulse;
+      if (p.alpha >= 1 || p.alpha <= 0.3) p.pulse *= -1;
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawHeart(centerX, centerY, scale, progress) {
+    ctx.save();
+    ctx.translate(centerX, centerY);
     ctx.beginPath();
-    ctx.fillStyle = `rgba(255, 220, 180, ${p.alpha})`;
-    ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
-    ctx.fill();
-    p.y -= p.speed;
-    if (p.y < 0) p.y = canvas.height;
-  }
-}
 
-// Draw one petal
-function drawPetal(cx, cy, radius, angle, alpha, hue) {
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(angle);
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.bezierCurveTo(radius * 0.2, -radius * 0.5, radius * 0.8, -radius * 0.5, radius, 0);
-  ctx.bezierCurveTo(radius * 0.8, radius * 0.5, radius * 0.2, radius * 0.5, 0, 0);
-
-  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-  grad.addColorStop(0, `hsla(${hue}, 90%, 70%, ${alpha})`);
-  grad.addColorStop(0.5, `hsla(${hue}, 80%, 50%, ${alpha * 0.8})`);
-  grad.addColorStop(1, `hsla(${hue}, 70%, 30%, ${alpha * 0.5})`);
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  ctx.strokeStyle = `hsla(${hue}, 50%, 20%, ${alpha * 0.9})`;
-  ctx.lineWidth = 0.8;
-  ctx.stroke();
-
-  ctx.restore();
-}
-
-// Draw full rose
-function drawRose(cx, cy, scale, progress, hue, rotation, opacity = 1) {
-  const layers = 10;
-  const petalsPerLayer = 8;
-
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(rotation);
-  ctx.translate(-cx, -cy);
-
-  for (let j = 0; j < layers; j++) {
-    const r = scale * (10 + j * 6);
-    const alpha = Math.min(progress * 2, 1) * (1 - j / layers) * opacity;
-    for (let i = 0; i < petalsPerLayer; i++) {
-      const angle = (i / petalsPerLayer) * Math.PI * 2 + (j % 2) * (Math.PI / petalsPerLayer);
-      drawPetal(cx, cy, r, angle, alpha, hue);
+    const steps = 200;
+    for (let i = 0; i < steps * progress; i++) {
+      const t = (i / steps) * Math.PI * 2;
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      if (i === 0) ctx.moveTo(x * scale, y * scale);
+      else ctx.lineTo(x * scale, y * scale);
     }
+
+    ctx.strokeStyle = "rgba(255, 0, 100, 0.8)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
   }
 
-  ctx.restore();
-}
+  let heartProgress = 0;
+  let animateHeart = false;
 
-// Create a new rose object
-function createRose(x = Math.random() * canvas.width, y = Math.random() * canvas.height) {
-  return {
-    x,
-    y,
-    scale: 1.2 + Math.random() * 1,
-    hue: Math.floor(Math.random() * 360),
-    timeOffset: 0,
-    progress: 0,
-    rotation: Math.random() * Math.PI * 2,
-    rotationSpeed: (Math.random() - 0.5) * 0.01,
-    status: "growing",
-    opacity: 1
-  };
-}
+  function animate() {
+    drawParticles();
 
-const MAX_ROSES = 12;
-const initialCount = 7;
-const roses = Array.from({ length: initialCount }, () => createRose());
-
-let time = 0;
-function animate() {
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  drawParticles();
-
-  for (let i = roses.length - 1; i >= 0; i--) {
-    let r = roses[i];
-
-    if (time > r.timeOffset) {
-      if (r.status === "growing") {
-        r.progress += 0.01;
-        r.opacity = Math.min(1, r.progress);
-      } else if (r.status === "fading") {
-        r.opacity -= 0.01;
-        if (r.opacity <= 0) {
-          roses.splice(i, 1); // Remove fully faded rose
-          continue;
-        }
-      }
-
-      r.rotation += r.rotationSpeed;
-
-      drawRose(
-        r.x,
-        r.y,
-        r.scale,
-        Math.min(r.progress, 1),
-        r.hue,
-        r.rotation,
-        r.opacity
-      );
+    if (animateHeart && heartProgress < 1) {
+      heartProgress += 0.01;
+      const rect = noteBox.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      drawHeart(cx, cy, 4, heartProgress);
     }
+
+    requestAnimationFrame(animate);
   }
 
-  time++;
-  requestAnimationFrame(animate);
-}
-animate();
+  animate();
 
-// Click to add rose
-canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  // Interaction
+  const clickMe = document.getElementById('clickMe');
+  const noteBox = document.getElementById('noteBox');
 
-  roses.push(createRose(x, y));
+  clickMe.addEventListener('click', () => {
+    clickMe.classList.add('fade');
 
-  // If too many, mark oldest growing rose to fade
-  const growing = roses.find(r => r.status === "growing");
-  if (roses.length > MAX_ROSES && growing) {
-    growing.status = "fading";
-  }
-});
-
-// Resize support
-window.addEventListener('resize', () => {
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-});
+    setTimeout(() => {
+      clickMe.style.display = 'none';
+      noteBox.classList.add('active');
+      animateHeart = true;
+    }, 600);
+  });
 </script>
 </body>
 </html>
